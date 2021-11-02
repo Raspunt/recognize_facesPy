@@ -8,10 +8,22 @@ import pickle
 class camera ():
 
 
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_alt2.xml')
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+    smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
+
+
     cap = cv2.VideoCapture(0)
 
     recognizer = cv2.face.LBPHFaceRecognizer_create()
+
+    recognizer.read("trainner.yml")
+
+    labels = {"person_name":1}
+    with open("label.pickle","rb") as f:
+        og_labels = pickle.load(f)
+        labels =  {v:k for  k,v in og_labels.items()}
+
     # recognizer.read("trainner.yml")
 
 
@@ -20,16 +32,22 @@ class camera ():
         err,frame = self.cap.read()
         gray = cv2.cvtColor(frame ,cv2.COLOR_BGR2GRAY)
 
-        faces = self.face_cascade.detectMultiScale(gray, 1.5, 4)
-
+        faces = self.face_cascade.detectMultiScale(gray, 1.1, 4)
 
         for (x,y,w,h) in faces:
             cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
             crop_gray = gray[y:y+h,x:x+w]
             crop_color = frame[y:y+h,x:x+w]
             # cv2.imwrite(f"images/crop_collor.png",crop_color)
-            # cv2.imwrite(f"images/crop_gray.png",crop_gray)
+            cv2.imwrite(f"images/crop_gray.png",crop_gray)
+            
+            id_,conf = self.recognizer.predict(crop_gray)
 
+            if  conf >= 45 :
+                print(id_)
+                print(self.labels[id_])
+                text = self.labels[id_]
+                cv2.putText(frame,text,(x+10,y),cv2.FONT_HERSHEY_COMPLEX,1, (255,255,255),2 ,cv2.LINE_AA)
 
         cv2.imshow("frame",frame)
         
@@ -75,3 +93,8 @@ class camera ():
 
         with open("label.pickle",'wb') as f:
             pickle.dump(self.label_ids ,f)
+
+
+    def CameraTrainer(self):
+        self.recognizer.train(self.x_train,np.array(self.y_labels))
+        self.recognizer.save("trainner.yml")
